@@ -1,0 +1,23 @@
+[package]
+name = "quicalc"
+version = "0.1.0"
+edition = "2021"
+rust-version = "1.80"
+license = "MIT OR Apache-2.0"
+
+[features]
+debug = ["iced/debug"]
+
+[dependencies]
+dirs = "5.0.1"
+global-hotkey = { version = "0.5.4", features = ["serde"] }
+iced = "0.12.1"
+image = { version = "0.25.2", default-features = false, features = [
+	"png",
+] }
+kalk = { version = "3.2.0", default-features = false }
+tracing = "0.1.40"
+tracing-subscriber = { version = "0.3.18", features = [
+	"env-filter",
+] }
+tray-icon = "0.14.3"

@@ -1,0 +1,73 @@
+name: Build and Release
+
+on:
+  workflow_dispatch:
+  push:
+    branches: ["main"]
+
+permissions:
+  contents: write
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "build"
+  cancel-in-progress: false
+
+jobs:
+  setup:
+    name: Set Up
+    runs-on: ubuntu-latest
+    outputs:
+      tag: ${{ steps.tag.outputs.tag }}
+    steps:
+      - id: tag
+        run: echo "TAG=$(date -u '+%Y-%m-%dT%H:%M:%SZ'" >> $GITHUB_OUTPUT
+      - uses: actions/checkout@v4
+      - run: |
+          git config user.name "GitHub Actions"
+          git config user.email "github-actions@users.noreply.github.com"
+          git tag ${{ needs.setup.outputs.tag }}
+          git push origin ${{ needs.setup.outputs.tag }}
+
+  licenses:
+    name: Gather and Publish License Info
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          cargo install --locked cargo-about
+          cargo about generate -o attribution.html --all-features about.hbs
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.setup.outputs.tag }}
+          tag_name: ${{ needs.setup.outputs.tag }}
+          fail_on_unmatched_files: true
+          files: attribution.html
+
+  windows:
+    name: Build on Windows
+    needs: setup
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        target: ["x86_64-pc-windows-msvc"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+        with:
+          targets: ${{ matrix.target }}
+      - uses: Swatinem/rust-cache@v2
+      - run: |
+          cd ${{ matrix.dir }}
+          cargo build --release --target ${{ matrix.target }}
+          cp "target/${{ matrix.target }}/release/quicalc.exe" "../quicalc-${{ matrix.target }}.exe"
+      - uses: softprops/action-gh-release@v2
+        with:
+          name: ${{ needs.setup.outputs.tag }}
+          tag_name: ${{ needs.setup.outputs.tag }}
+          fail_on_unmatched_files: true
+          files: quicalc-${{ matrix.target }}.exe

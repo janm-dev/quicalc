@@ -14,7 +14,7 @@ use global_hotkey::{
 	hotkey::{Code, HotKey, Modifiers},
 };
 use iced::{
-	Alignment, Element, Event, Pixels, Settings, Size, Subscription, Task, Theme, event,
+	Alignment, Element, Event, Pixels, Settings, Size, Subscription, Task, Theme, event, exit,
 	futures::SinkExt,
 	keyboard::{Event as KeyboardEvent, Key, Modifiers as IcedModifiers, key::Named},
 	stream,
@@ -28,12 +28,19 @@ use kalk::{
 };
 use tracing::{debug, info, trace};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
+use tray_icon::{
+	Icon, TrayIconBuilder,
+	menu::{Menu, MenuEvent, MenuId, MenuItem},
+};
 
 static KEYBIND: LazyLock<(IcedModifiers, Key)> =
 	LazyLock::new(|| (IcedModifiers::ALT, Key::Named(Named::Enter)));
 static CLOSE_KEYBIND: LazyLock<(IcedModifiers, Key)> =
 	LazyLock::new(|| (IcedModifiers::empty(), Key::Named(Named::Escape)));
 static HOTKEY: LazyLock<HotKey> = LazyLock::new(|| HotKey::new(Some(Modifiers::ALT), Code::Enter));
+
+static MENU_SHOW: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("show"));
+static MENU_EXIT: LazyLock<MenuId> = LazyLock::new(|| MenuId::new("exit"));
 
 #[derive(Default, Clone, Copy)]
 struct ImplDebug<T: ?Sized>(pub T);
@@ -64,6 +71,7 @@ enum Message {
 	InputSubmitted,
 	ShowWindow,
 	HideWindow,
+	Exit,
 }
 
 #[derive(Debug, Default)]
@@ -100,6 +108,23 @@ impl Quicalc {
 
 							if event.state() == HotKeyState::Pressed && event.id() == HOTKEY.id() {
 								sender.send(Message::ShowWindow).await.unwrap();
+							}
+						};
+
+						thread::sleep(Duration::from_millis(50));
+					}
+				})
+			}),
+			Subscription::run(|| {
+				stream::channel(0, |mut sender| async move {
+					loop {
+						if let Ok(event) = MenuEvent::receiver().try_recv() {
+							debug!(?event, "new tray icon menu event");
+
+							if event.id() == &*MENU_SHOW {
+								sender.send(Message::ShowWindow).await.unwrap();
+							} else if event.id() == &*MENU_EXIT {
+								sender.send(Message::Exit).await.unwrap();
 							}
 						};
 
@@ -159,6 +184,7 @@ impl Quicalc {
 				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
 				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
 			]),
+			Message::Exit => exit(),
 		}
 	}
 
@@ -198,7 +224,23 @@ fn main() {
 		image::load_from_memory_with_format(include_bytes!("../assets/icon.png"), ImageFormat::Png)
 			.unwrap();
 	let (width, height, pixels) = (icon.width(), icon.height(), icon.into_rgba8().into_vec());
-	let icon = icon::from_rgba(pixels, width, height).unwrap();
+
+	info!("loaded icon");
+
+	let tray_menu = Menu::with_items(&[
+		&MenuItem::with_id(&*MENU_SHOW.0, "Show", true, None),
+		&MenuItem::with_id(&*MENU_EXIT.0, "Exit", true, None),
+	])
+	.unwrap();
+
+	let _tray_icon = TrayIconBuilder::new()
+		.with_tooltip("Quicalc")
+		.with_icon(Icon::from_rgba(pixels.clone(), width, height).unwrap())
+		.with_menu(Box::new(tray_menu))
+		.build()
+		.unwrap();
+
+	info!("set up tray icon");
 
 	iced::application(Quicalc::title, Quicalc::update, Quicalc::view)
 		.subscription(Quicalc::subscription)
@@ -216,7 +258,7 @@ fn main() {
 			resizable: false,
 			transparent: true,
 			level: Level::AlwaysOnTop,
-			icon: Some(icon),
+			icon: Some(icon::from_rgba(pixels, width, height).unwrap()),
 			exit_on_close_request: false,
 			..Default::default()
 		})

@@ -1,6 +1,11 @@
 # Quicalc
 
-A quick and handy desktop calculator.
+A quick and handy desktop calculator based on [kalker](https://kalker.xyz).
+
+## Platform Compatibility
+
+Currently, only Windows 11 is tested and built.
+This program may work on other platforms (probably at least macOS, Linux with GTK, and older versions of Windows), but they are currently not supported.
 
 ## Shortcuts
 

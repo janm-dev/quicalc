@@ -19,10 +19,11 @@ jobs:
     name: Set Up
     runs-on: ubuntu-latest
     outputs:
-      tag: ${{ steps.tag.outputs.tag }}
+      tag: ${{ steps.generate.outputs.tag }}
+      name: ${{ steps.generate.outputs.name }}
     steps:
-      - id: tag
-        run: echo "TAG=$(date -u '+%Y-%m-%dT%H:%M:%SZ')" >> $GITHUB_OUTPUT
+      - id: generate
+        run: printf "NAME=$(date -u '+%Y-%m-%d %H:%M:%S')\nTAG=$(date -u '+%-Y.%-m.%-d.%-H.%-M.%-S')\n" >> $GITHUB_OUTPUT
       - uses: actions/checkout@v4
       - run: |
           git config user.name "GitHub Actions"
@@ -43,7 +44,7 @@ jobs:
           cargo about generate -o attribution.html --all-features about.hbs
       - uses: softprops/action-gh-release@v2
         with:
-          name: ${{ needs.setup.outputs.tag }}
+          name: ${{ needs.setup.outputs.name }}
           tag_name: ${{ needs.setup.outputs.tag }}
           fail_on_unmatched_files: true
           files: attribution.html
@@ -67,7 +68,7 @@ jobs:
           cp "target/${{ matrix.target }}/release/quicalc.exe" "quicalc-${{ matrix.target }}.exe"
       - uses: softprops/action-gh-release@v2
         with:
-          name: ${{ needs.setup.outputs.tag }}
+          name: ${{ needs.setup.outputs.name }}
           tag_name: ${{ needs.setup.outputs.tag }}
           fail_on_unmatched_files: true
           files: quicalc-${{ matrix.target }}.exe

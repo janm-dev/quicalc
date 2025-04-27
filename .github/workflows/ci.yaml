@@ -23,7 +23,7 @@ jobs:
 
   fmt:
     name: Format
-    runs-on: windows-latest
+    runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@nightly

@@ -171,7 +171,7 @@ impl Quicalc {
 		match msg {
 			Message::ShowWindow => Task::batch(vec![
 				window::get_oldest().and_then(|id| window::change_mode(id, Mode::Windowed)),
-				window::get_oldest().and_then(|id| window::gain_focus(id)),
+				window::get_oldest().and_then(window::gain_focus),
 				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
 				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
 			]),

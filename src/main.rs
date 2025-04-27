@@ -1,7 +1,7 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
 use std::{
-	any::{self, TypeId},
+	any,
 	fmt::{Debug, Formatter, Result as FmtResult},
 	ops::{Deref, DerefMut},
 	sync::LazyLock,
@@ -10,28 +10,24 @@ use std::{
 };
 
 use global_hotkey::{
-	hotkey::{Code, HotKey, Modifiers},
 	GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
+	hotkey::{Code, HotKey, Modifiers},
 };
 use iced::{
-	event, executor,
+	Alignment, Element, Event, Pixels, Settings, Size, Subscription, Task, Theme, event,
 	futures::SinkExt,
-	keyboard::{key::Named, Event as KeyboardEvent, Key, Modifiers as IcedModifiers},
-	subscription,
+	keyboard::{Event as KeyboardEvent, Key, Modifiers as IcedModifiers, key::Named},
+	stream,
 	widget::{column, text, text_input},
-	window::{
-		self, icon, Event as WindowEvent, Id as WindowId, Level, Mode, Position,
-		Settings as WindowSettings,
-	},
-	Alignment, Application, Command, Element, Event, Pixels, Settings, Size, Subscription, Theme,
+	window::{self, Event as WindowEvent, Level, Mode, Position, Settings as WindowSettings, icon},
 };
 use image::ImageFormat;
 use kalk::{
 	calculation_result::CalculationResult,
-	parser::{eval, Context},
+	parser::{Context, eval},
 };
 use tracing::{debug, info, trace};
-use tracing_subscriber::{fmt, prelude::*, EnvFilter};
+use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 
 static KEYBIND: LazyLock<(IcedModifiers, Key)> =
 	LazyLock::new(|| (IcedModifiers::ALT, Key::Named(Named::Enter)));
@@ -79,62 +75,53 @@ struct Quicalc {
 
 impl Quicalc {
 	const TEXT_INPUT_ID: &'static str = "quicalc-input";
-}
 
-impl Application for Quicalc {
-	type Executor = executor::Default;
-	type Flags = ();
-	type Message = Message;
-	type Theme = Theme;
-
-	fn new(_: Self::Flags) -> (Self, Command<Self::Message>) {
-		(Self::default(), Command::none())
+	fn new() -> (Self, Task<Message>) {
+		(Self::default(), Task::none())
 	}
 
 	fn title(&self) -> String {
 		"Quicalc".to_string()
 	}
 
-	fn theme(&self) -> Self::Theme {
-		Self::Theme::Dark
+	fn theme(&self) -> Theme {
+		Theme::Dark
 	}
 
-	fn subscription(&self) -> Subscription<Self::Message> {
+	fn subscription(&self) -> Subscription<Message> {
 		trace!("subscription");
 
 		Subscription::batch([
-			subscription::channel(
-				TypeId::of::<GlobalHotKeyEvent>(),
-				0,
-				|mut sender| async move {
+			Subscription::run(|| {
+				stream::channel(0, |mut sender| async move {
 					loop {
 						if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
 							debug!(?event, "new hotkey event");
 
 							if event.state() == HotKeyState::Pressed && event.id() == HOTKEY.id() {
-								sender.send(Self::Message::ShowWindow).await.unwrap();
+								sender.send(Message::ShowWindow).await.unwrap();
 							}
 						};
 
 						thread::sleep(Duration::from_millis(50));
 					}
-				},
-			),
-			event::listen_with(|event, _| match event {
+				})
+			}),
+			event::listen_with(|event, _, _| match event {
 				Event::Keyboard(KeyboardEvent::KeyPressed { key, modifiers, .. }) => {
 					let keypress = (modifiers, key);
 
 					if keypress == *KEYBIND {
-						Some(Self::Message::ShowWindow)
+						Some(Message::ShowWindow)
 					} else if keypress == *CLOSE_KEYBIND {
-						Some(Self::Message::HideWindow)
+						Some(Message::HideWindow)
 					} else {
 						None
 					}
 				}
-				Event::Window(WindowId::MAIN, event) => match event {
-					WindowEvent::CloseRequested => Some(Self::Message::HideWindow),
-					WindowEvent::Unfocused => Some(Self::Message::HideWindow),
+				Event::Window(event) => match event {
+					WindowEvent::CloseRequested => Some(Message::HideWindow),
+					WindowEvent::Unfocused => Some(Message::HideWindow),
 					_ => None,
 				},
 				_ => None,
@@ -142,46 +129,46 @@ impl Application for Quicalc {
 		])
 	}
 
-	fn update(&mut self, msg: Self::Message) -> Command<Self::Message> {
+	fn update(&mut self, msg: Message) -> Task<Message> {
 		debug!(?msg, "update");
 
 		match msg {
-			Self::Message::ShowWindow => Command::batch(vec![
-				window::change_mode(WindowId::MAIN, Mode::Windowed),
-				window::gain_focus(WindowId::MAIN),
+			Message::ShowWindow => Task::batch(vec![
+				window::get_oldest().and_then(|id| window::change_mode(id, Mode::Windowed)),
+				window::get_oldest().and_then(|id| window::gain_focus(id)),
 				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
 				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
 			]),
-			Self::Message::HideWindow => {
+			Message::HideWindow => {
 				self.ctx.0 = Context::new();
 				self.result = eval(&mut self.ctx, &self.input)
 					.ok()
 					.flatten()
 					.map(ImplDebug);
-				window::change_mode(WindowId::MAIN, Mode::Hidden)
+				window::get_oldest().and_then(|id| window::change_mode(id, Mode::Hidden))
 			}
-			Self::Message::InputChanged(input) => {
+			Message::InputChanged(input) => {
 				self.input = input;
 				self.result = eval(&mut self.ctx, &self.input)
 					.ok()
 					.flatten()
 					.map(ImplDebug);
-				Command::none()
+				Task::none()
 			}
-			Self::Message::InputSubmitted => Command::batch(vec![
+			Message::InputSubmitted => Task::batch(vec![
 				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
 				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
 			]),
 		}
 	}
 
-	fn view(&self) -> Element<'_, Self::Message, Self::Theme> {
+	fn view(&self) -> Element<'_, Message, Theme> {
 		trace!("view");
 
 		column![
 			text_input("Do math", &self.input)
-				.on_input(Self::Message::InputChanged)
-				.on_submit(Self::Message::InputSubmitted)
+				.on_input(Message::InputChanged)
+				.on_submit(Message::InputSubmitted)
 				.id(text_input::Id::new(Self::TEXT_INPUT_ID)),
 			text(
 				self.result
@@ -191,7 +178,7 @@ impl Application for Quicalc {
 			),
 		]
 		.padding(0)
-		.align_items(Alignment::Start)
+		.align_x(Alignment::Start)
 		.into()
 	}
 }
@@ -213,10 +200,15 @@ fn main() {
 	let (width, height, pixels) = (icon.width(), icon.height(), icon.into_rgba8().into_vec());
 	let icon = icon::from_rgba(pixels, width, height).unwrap();
 
-	Quicalc::run(Settings {
-		antialiasing: true,
-		default_text_size: Pixels(32.0),
-		window: WindowSettings {
+	iced::application(Quicalc::title, Quicalc::update, Quicalc::view)
+		.subscription(Quicalc::subscription)
+		.theme(Quicalc::theme)
+		.settings(Settings {
+			antialiasing: true,
+			default_text_size: Pixels(32.0),
+			..Default::default()
+		})
+		.window(WindowSettings {
 			decorations: false,
 			size: Size::new(640.0, 100.0),
 			position: Position::Centered,
@@ -227,8 +219,7 @@ fn main() {
 			icon: Some(icon),
 			exit_on_close_request: false,
 			..Default::default()
-		},
-		..Default::default()
-	})
-	.unwrap();
+		})
+		.run_with(Quicalc::new)
+		.unwrap();
 }

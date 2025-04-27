@@ -5,8 +5,6 @@ use std::{
 	fmt::{Debug, Formatter, Result as FmtResult},
 	ops::{Deref, DerefMut},
 	sync::LazyLock,
-	thread,
-	time::Duration,
 };
 
 use global_hotkey::{
@@ -26,7 +24,7 @@ use kalk::{
 	calculation_result::CalculationResult,
 	parser::{Context, eval},
 };
-use tracing::{debug, info, trace};
+use tracing::{debug, error, info, trace};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tray_icon::{
 	Icon, TrayIconBuilder,
@@ -103,32 +101,45 @@ impl Quicalc {
 			Subscription::run(|| {
 				stream::channel(0, |mut sender| async move {
 					loop {
-						if let Ok(event) = GlobalHotKeyEvent::receiver().try_recv() {
-							debug!(?event, "new hotkey event");
+						let message = crossbeam_channel::select! {
+							recv(GlobalHotKeyEvent::receiver()) -> msg => {
+								if let Ok(event) = msg {
+									debug!(?event, "new hotkey event");
 
-							if event.state() == HotKeyState::Pressed && event.id() == HOTKEY.id() {
-								sender.send(Message::ShowWindow).await.unwrap();
-							}
+									if event.state() == HotKeyState::Pressed && event.id() == HOTKEY.id() {
+										Some(Message::ShowWindow)
+									} else {
+										None
+									}
+								} else {
+									error!("error receiving global hotkey event: {msg:?}");
+									None
+								}
+							},
+							recv(MenuEvent::receiver()) -> msg => {
+								if let Ok(event) = msg {
+									debug!(?event, "new tray icon menu event");
+
+									if event.id() == &*MENU_SHOW {
+										Some(Message::ShowWindow)
+									} else if event.id() == &*MENU_EXIT {
+										Some(Message::Exit)
+									} else {
+										error!("unknown menu item event id: {:?}", event.id());
+										None
+									}
+								} else {
+									error!("error receiving global hotkey event: {msg:?}");
+									None
+								}
+							},
 						};
 
-						thread::sleep(Duration::from_millis(50));
-					}
-				})
-			}),
-			Subscription::run(|| {
-				stream::channel(0, |mut sender| async move {
-					loop {
-						if let Ok(event) = MenuEvent::receiver().try_recv() {
-							debug!(?event, "new tray icon menu event");
-
-							if event.id() == &*MENU_SHOW {
-								sender.send(Message::ShowWindow).await.unwrap();
-							} else if event.id() == &*MENU_EXIT {
-								sender.send(Message::Exit).await.unwrap();
+						if let Some(message) = message {
+							if let Err(err) = sender.send(message).await {
+								error!("error processing event: {err:?}")
 							}
-						};
-
-						thread::sleep(Duration::from_millis(50));
+						}
 					}
 				})
 			}),

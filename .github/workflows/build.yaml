@@ -63,9 +63,8 @@ jobs:
           targets: ${{ matrix.target }}
       - uses: Swatinem/rust-cache@v2
       - run: |
-          cd ${{ matrix.dir }}
           cargo build --release --target ${{ matrix.target }}
-          cp "target/${{ matrix.target }}/release/quicalc.exe" "../quicalc-${{ matrix.target }}.exe"
+          cp "target/${{ matrix.target }}/release/quicalc.exe" "quicalc-${{ matrix.target }}.exe"
       - uses: softprops/action-gh-release@v2
         with:
           name: ${{ needs.setup.outputs.tag }}

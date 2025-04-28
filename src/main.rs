@@ -6,6 +6,8 @@ use std::{
 	ops::{Deref, DerefMut},
 	sync::LazyLock,
 };
+#[cfg(feature = "python")]
+use std::{ffi::CString, str::FromStr};
 
 use global_hotkey::{
 	GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
@@ -16,14 +18,13 @@ use iced::{
 	futures::SinkExt,
 	keyboard::{Event as KeyboardEvent, Key, Modifiers as IcedModifiers, key::Named},
 	stream,
-	widget::{column, text, text_input},
+	widget::{Image, column, image::Handle, row, text, text_input},
 	window::{self, Event as WindowEvent, Level, Mode, Position, Settings as WindowSettings, icon},
 };
 use image::ImageFormat;
-use kalk::{
-	calculation_result::CalculationResult,
-	parser::{Context, eval},
-};
+use kalk::parser::{Context, eval};
+#[cfg(feature = "python")]
+use pyo3::Python;
 use tracing::{debug, error, info, trace};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tray_icon::{
@@ -72,11 +73,62 @@ enum Message {
 	Exit,
 }
 
+#[derive(Debug, Default, PartialEq, Eq)]
+enum QuicalcMode {
+	#[default]
+	Kalk,
+	#[cfg(feature = "python")]
+	Python,
+}
+
+impl QuicalcMode {
+	const KALK_COMMAND: &str = "kalk";
+	const PYTHON_COMMAND: &str = "py";
+
+	fn prompt(&self) -> &str {
+		match self {
+			Self::Kalk => "Do math",
+			#[cfg(feature = "python")]
+			Self::Python => "Evaluate a Python expression",
+		}
+	}
+
+	fn indicator(&self) -> &'static Handle {
+		static KALK_IMAGE: LazyLock<Handle> = LazyLock::new(|| {
+			let icon = image::load_from_memory_with_format(
+				include_bytes!("../assets/indicators/kalk.png"),
+				ImageFormat::Png,
+			)
+			.unwrap();
+
+			Handle::from_rgba(icon.width(), icon.height(), icon.into_rgba8().into_vec())
+		});
+
+		#[cfg(feature = "python")]
+		static PYTHON_IMAGE: LazyLock<Handle> = LazyLock::new(|| {
+			let icon = image::load_from_memory_with_format(
+				include_bytes!("../assets/indicators/python.png"),
+				ImageFormat::Png,
+			)
+			.unwrap();
+
+			Handle::from_rgba(icon.width(), icon.height(), icon.into_rgba8().into_vec())
+		});
+
+		match self {
+			Self::Kalk => &*KALK_IMAGE,
+			#[cfg(feature = "python")]
+			Self::Python => &*PYTHON_IMAGE,
+		}
+	}
+}
+
 #[derive(Debug, Default)]
 struct Quicalc {
+	mode: QuicalcMode,
 	ctx: ImplDebug<Context>,
 	input: String,
-	result: Option<ImplDebug<CalculationResult>>,
+	result: Option<String>,
 }
 
 impl Quicalc {
@@ -176,25 +228,54 @@ impl Quicalc {
 				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
 			]),
 			Message::HideWindow => {
+				if self.input.is_empty() {
+					self.mode = QuicalcMode::default();
+				}
+
 				self.ctx.0 = Context::new();
-				self.result = eval(&mut self.ctx, &self.input)
-					.ok()
-					.flatten()
-					.map(ImplDebug);
+				self.eval();
+
 				window::get_oldest().and_then(|id| window::set_mode(id, Mode::Hidden))
 			}
 			Message::InputChanged(input) => {
 				self.input = input;
-				self.result = eval(&mut self.ctx, &self.input)
-					.ok()
-					.flatten()
-					.map(ImplDebug);
+				self.eval();
 				Task::none()
 			}
-			Message::InputSubmitted => Task::batch(vec![
-				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
-				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
-			]),
+			Message::InputSubmitted => match self.input.as_str() {
+				#[cfg(feature = "python")]
+				QuicalcMode::PYTHON_COMMAND => {
+					self.mode = QuicalcMode::Python;
+					self.input.clear();
+					self.result = None;
+					Task::batch(vec![
+						text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
+						text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
+					])
+				}
+				#[cfg(not(feature = "python"))]
+				QuicalcMode::PYTHON_COMMAND => {
+					self.input.clear();
+					self.result = Some("Python mode is not supported.".to_string());
+					Task::batch(vec![
+						text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
+						text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
+					])
+				}
+				"" | "q" | "exit" | "quit" | "calc" | QuicalcMode::KALK_COMMAND => {
+					self.mode = QuicalcMode::default();
+					self.input.clear();
+					self.result = None;
+					Task::batch(vec![
+						text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
+						text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
+					])
+				}
+				_ => Task::batch(vec![
+					text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
+					text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
+				]),
+			},
 			Message::Exit => exit(),
 		}
 	}
@@ -203,20 +284,45 @@ impl Quicalc {
 		trace!("view");
 
 		column![
-			text_input("Do math", &self.input)
+			text_input(self.mode.prompt(), &self.input)
 				.on_input(Message::InputChanged)
 				.on_submit(Message::InputSubmitted)
 				.id(text_input::Id::new(Self::TEXT_INPUT_ID)),
-			text(
-				self.result
-					.as_ref()
-					.map(|res| format!("= {}", res.0))
-					.unwrap_or_default(),
-			),
+			row![
+				Image::new(self.mode.indicator()),
+				text(self.result.as_deref().unwrap_or_default())
+			],
 		]
 		.padding(0)
 		.align_x(Alignment::Start)
 		.into()
+	}
+
+	fn eval(&mut self) {
+		trace!("eval");
+
+		match self.mode {
+			QuicalcMode::Kalk => {
+				self.result = eval(&mut self.ctx, &self.input)
+					.ok()
+					.flatten()
+					.map(|res| format!("≈ {res}"));
+			}
+			#[cfg(feature = "python")]
+			QuicalcMode::Python => {
+				self.result = Python::with_gil(|py| {
+					py.eval(
+						CString::from_str(&self.input)
+							.unwrap_or_default()
+							.as_c_str(),
+						None,
+						None,
+					)
+					.ok()
+					.map(|res| format!("→ {res}"))
+				})
+			}
+		}
 	}
 }
 

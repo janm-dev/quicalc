@@ -14,6 +14,8 @@ The program will keep running and waiting to be opened again.
 
 ## License
 
+The images in `assets/indicators/` are property of their respective owners.
+
 This project is licensed under either of
 
 - Apache license, Version 2.0, ([LICENSE-APACHE](LICENSE-APACHE) or <https://www.apache.org/licenses/LICENSE-2.0>)

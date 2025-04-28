@@ -116,9 +116,9 @@ impl QuicalcMode {
 		});
 
 		match self {
-			Self::Kalk => &*KALK_IMAGE,
+			Self::Kalk => &KALK_IMAGE,
 			#[cfg(feature = "python")]
-			Self::Python => &*PYTHON_IMAGE,
+			Self::Python => &PYTHON_IMAGE,
 		}
 	}
 }

@@ -13,13 +13,27 @@ env:
 
 jobs:
   check:
-    name: Check
+    name: Check with default features
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - run: cargo check
+
+  check-features:
+    name: Check with ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        feat_debug: ["", "-F debug"]
+        feat_python: ["", "-F python"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo check --no-default-features ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
 
   fmt:
     name: Format
@@ -42,3 +56,17 @@ jobs:
           components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly clippy -- -D warnings
+
+  clippy-features:
+    name: Clippy with ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
+    runs-on: windows-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        feat_debug: ["", "-F debug"]
+        feat_python: ["", "-F python"]
+    steps:
+      - uses: actions/checkout@v4
+      - uses: dtolnay/rust-toolchain@stable
+      - uses: Swatinem/rust-cache@v2
+      - run: cargo +nightly clippy --no-default-features ${{ matrix.feat_debug }} ${{ matrix.feat_python }} -- -D warnings

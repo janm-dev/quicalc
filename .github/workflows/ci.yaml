@@ -13,7 +13,7 @@ env:
 
 jobs:
   check:
-    name: Check with default features
+    name: Check
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -22,7 +22,7 @@ jobs:
       - run: cargo check
 
   check-features:
-    name: Check with ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
+    name: Check with --no-default-features ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -58,7 +58,7 @@ jobs:
       - run: cargo +nightly clippy -- -D warnings
 
   clippy-features:
-    name: Clippy with ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
+    name: Clippy with --no-default-features ${{ matrix.feat_debug }} ${{ matrix.feat_python }}
     runs-on: windows-latest
     strategy:
       fail-fast: false
@@ -67,6 +67,8 @@ jobs:
         feat_python: ["", "-F python"]
     steps:
       - uses: actions/checkout@v4
-      - uses: dtolnay/rust-toolchain@stable
+      - uses: dtolnay/rust-toolchain@nightly
+        with:
+          components: clippy
       - uses: Swatinem/rust-cache@v2
       - run: cargo +nightly clippy --no-default-features ${{ matrix.feat_debug }} ${{ matrix.feat_python }} -- -D warnings

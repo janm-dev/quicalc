@@ -99,7 +99,7 @@ impl Quicalc {
 
 		Subscription::batch([
 			Subscription::run(|| {
-				stream::channel(0, |mut sender| async move {
+				stream::channel(0, async move |mut sender| {
 					loop {
 						let message = crossbeam_channel::select! {
 							recv(GlobalHotKeyEvent::receiver()) -> msg => {
@@ -170,7 +170,7 @@ impl Quicalc {
 
 		match msg {
 			Message::ShowWindow => Task::batch(vec![
-				window::get_oldest().and_then(|id| window::change_mode(id, Mode::Windowed)),
+				window::get_oldest().and_then(|id| window::set_mode(id, Mode::Windowed)),
 				window::get_oldest().and_then(window::gain_focus),
 				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
 				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
@@ -181,7 +181,7 @@ impl Quicalc {
 					.ok()
 					.flatten()
 					.map(ImplDebug);
-				window::get_oldest().and_then(|id| window::change_mode(id, Mode::Hidden))
+				window::get_oldest().and_then(|id| window::set_mode(id, Mode::Hidden))
 			}
 			Message::InputChanged(input) => {
 				self.input = input;
@@ -253,9 +253,10 @@ fn main() {
 
 	info!("set up tray icon");
 
-	iced::application(Quicalc::title, Quicalc::update, Quicalc::view)
+	iced::application(Quicalc::new, Quicalc::update, Quicalc::view)
 		.subscription(Quicalc::subscription)
 		.theme(Quicalc::theme)
+		.title(Quicalc::title)
 		.settings(Settings {
 			antialiasing: true,
 			default_text_size: Pixels(32.0),
@@ -273,6 +274,6 @@ fn main() {
 			exit_on_close_request: false,
 			..Default::default()
 		})
-		.run_with(Quicalc::new)
+		.run()
 		.unwrap();
 }

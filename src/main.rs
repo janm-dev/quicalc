@@ -24,7 +24,7 @@ use iced::{
 use image::ImageFormat;
 use kalk::parser::{Context, eval};
 #[cfg(feature = "python")]
-use pyo3::Python;
+use pyo3::{Python, PythonVersionInfo};
 use tracing::{debug, error, info, trace};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tray_icon::{
@@ -85,11 +85,19 @@ impl QuicalcMode {
 	const KALK_COMMAND: &str = "kalk";
 	const PYTHON_COMMAND: &str = "py";
 
-	fn prompt(&self) -> &str {
+	fn prompt(&self) -> &'static str {
+		#[cfg(feature = "python")]
+		static PY_VERSION: LazyLock<String> = LazyLock::new(|| {
+			Python::with_gil(|py| {
+				let PythonVersionInfo { major, minor, .. } = py.version_info();
+				format!("Python {major}.{minor}")
+			})
+		});
+
 		match self {
-			Self::Kalk => "Do math",
+			Self::Kalk => "Calculator",
 			#[cfg(feature = "python")]
-			Self::Python => "Evaluate a Python expression",
+			Self::Python => &PY_VERSION,
 		}
 	}
 
@@ -242,40 +250,31 @@ impl Quicalc {
 				self.eval();
 				Task::none()
 			}
-			Message::InputSubmitted => match self.input.as_str() {
-				#[cfg(feature = "python")]
-				QuicalcMode::PYTHON_COMMAND => {
-					self.mode = QuicalcMode::Python;
-					self.input.clear();
-					self.result = None;
-					Task::batch(vec![
-						text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
-						text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
-					])
-				}
-				#[cfg(not(feature = "python"))]
-				QuicalcMode::PYTHON_COMMAND => {
-					self.input.clear();
-					self.result = Some("Python mode is not supported.".to_string());
-					Task::batch(vec![
-						text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
-						text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
-					])
-				}
-				"" | "q" | "exit" | "quit" | "calc" | QuicalcMode::KALK_COMMAND => {
-					self.mode = QuicalcMode::default();
-					self.input.clear();
-					self.result = None;
-					Task::batch(vec![
-						text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
-						text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
-					])
-				}
-				_ => Task::batch(vec![
+			Message::InputSubmitted => {
+				match self.input.as_str() {
+					QuicalcMode::PYTHON_COMMAND => {
+						if cfg!(feature = "python") {
+							self.mode = QuicalcMode::Python;
+							self.input.clear();
+							self.result = None;
+						} else {
+							self.input.clear();
+							self.result = Some("Python mode is not supported.".to_string());
+						};
+					}
+					"" | "q" | "exit" | "quit" | "calc" | QuicalcMode::KALK_COMMAND => {
+						self.mode = QuicalcMode::default();
+						self.input.clear();
+						self.result = None;
+					}
+					_ => (),
+				};
+
+				Task::batch(vec![
 					text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
 					text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
-				]),
-			},
+				])
+			}
 			Message::Exit => exit(),
 		}
 	}
@@ -284,7 +283,7 @@ impl Quicalc {
 		trace!("view");
 
 		column![
-			text_input(self.mode.prompt(), &self.input)
+			text_input(&self.mode.prompt(), &self.input)
 				.on_input(Message::InputChanged)
 				.on_submit(Message::InputSubmitted)
 				.id(text_input::Id::new(Self::TEXT_INPUT_ID)),

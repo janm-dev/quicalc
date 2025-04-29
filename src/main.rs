@@ -1,13 +1,13 @@
 #![cfg_attr(not(debug_assertions), windows_subsystem = "windows")]
 
+#[cfg(feature = "python")]
+use std::ffi::CString;
 use std::{
 	any,
 	fmt::{Debug, Formatter, Result as FmtResult},
 	ops::{Deref, DerefMut},
 	sync::LazyLock,
 };
-#[cfg(feature = "python")]
-use std::{ffi::CString, str::FromStr};
 
 use global_hotkey::{
 	GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
@@ -21,14 +21,14 @@ use iced::{
 	widget::{Image, column, image::Handle, row, text, text_input},
 	window::{self, Event as WindowEvent, Level, Mode, Position, Settings as WindowSettings, icon},
 };
-use image::ImageFormat;
+use image::{DynamicImage, ImageFormat};
 use kalk::parser::{Context, eval};
 #[cfg(feature = "python")]
 use pyo3::{Python, PythonVersionInfo};
-use tracing::{debug, error, info, trace};
+use tracing::{debug, error, info, trace, warn};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tray_icon::{
-	Icon, TrayIconBuilder,
+	Icon, TrayIcon, TrayIconBuilder,
 	menu::{Menu, MenuEvent, MenuId, MenuItem},
 };
 
@@ -107,7 +107,8 @@ impl QuicalcMode {
 				include_bytes!("../assets/indicators/kalk.png"),
 				ImageFormat::Png,
 			)
-			.unwrap();
+			.inspect_err(|err| error!(?err, "error loading kalk icon"))
+			.unwrap_or_default();
 
 			Handle::from_rgba(icon.width(), icon.height(), icon.into_rgba8().into_vec())
 		});
@@ -118,7 +119,8 @@ impl QuicalcMode {
 				include_bytes!("../assets/indicators/python.png"),
 				ImageFormat::Png,
 			)
-			.unwrap();
+			.inspect_err(|err| error!(?err, "error loading python icon"))
+			.unwrap_or_default();
 
 			Handle::from_rgba(icon.width(), icon.height(), icon.into_rgba8().into_vec())
 		});
@@ -283,7 +285,7 @@ impl Quicalc {
 		trace!("view");
 
 		column![
-			text_input(&self.mode.prompt(), &self.input)
+			text_input(self.mode.prompt(), &self.input)
 				.on_input(Message::InputChanged)
 				.on_submit(Message::InputSubmitted)
 				.id(text_input::Id::new(Self::TEXT_INPUT_ID)),
@@ -303,6 +305,7 @@ impl Quicalc {
 		match self.mode {
 			QuicalcMode::Kalk => {
 				self.result = eval(&mut self.ctx, &self.input)
+					.inspect_err(|err| debug!(?err, "error evaluating math"))
 					.ok()
 					.flatten()
 					.map(|res| format!("≈ {res}"));
@@ -311,12 +314,14 @@ impl Quicalc {
 			QuicalcMode::Python => {
 				self.result = Python::with_gil(|py| {
 					py.eval(
-						CString::from_str(&self.input)
+						CString::new(self.input.clone())
+							.inspect_err(|err| warn!(?err, "invalid python expression entered"))
 							.unwrap_or_default()
 							.as_c_str(),
 						None,
 						None,
 					)
+					.inspect_err(|err| debug!(?err, "error evaluating python expression"))
 					.ok()
 					.map(|res| format!("→ {res}"))
 				})
@@ -325,38 +330,59 @@ impl Quicalc {
 	}
 }
 
+fn set_up_hotkey() -> Result<GlobalHotKeyManager, String> {
+	let hotkeys = GlobalHotKeyManager::new().map_err(|e| e.to_string())?;
+	hotkeys.register(*HOTKEY).map_err(|e| e.to_string())?;
+
+	Ok(hotkeys)
+}
+
+fn set_up_tray_icon(icon: &DynamicImage) -> Result<TrayIcon, String> {
+	let tray_menu = Menu::with_items(&[
+		&MenuItem::with_id(&*MENU_SHOW.0, "Show", true, None),
+		&MenuItem::with_id(&*MENU_EXIT.0, "Exit", true, None),
+	])
+	.map_err(|e| e.to_string())?;
+
+	let (width, height, pixels) = (icon.width(), icon.height(), icon.to_rgba8().into_vec());
+
+	let tray_icon = TrayIconBuilder::new()
+		.with_tooltip("Quicalc")
+		.with_icon(Icon::from_rgba(pixels, width, height).map_err(|e| e.to_string())?)
+		.with_menu(Box::new(tray_menu))
+		.build()
+		.map_err(|e| e.to_string())?;
+
+	Ok(tray_icon)
+}
+
 fn main() {
 	tracing_subscriber::registry()
 		.with(fmt::layer())
 		.with(EnvFilter::from_env("QUICALC_LOG"))
 		.init();
 
-	let hotkeys = GlobalHotKeyManager::new().unwrap();
-	hotkeys.register(*HOTKEY).unwrap();
-
-	info!("set up hotkey listener");
+	let _hotkeys = set_up_hotkey()
+		.inspect(|_| info!("set up global hotkey"))
+		.inspect_err(|err| error!(?err, "error setting up global hotkey"))
+		.ok();
 
 	let icon =
 		image::load_from_memory_with_format(include_bytes!("../assets/icon.png"), ImageFormat::Png)
-			.unwrap();
-	let (width, height, pixels) = (icon.width(), icon.height(), icon.into_rgba8().into_vec());
+			.inspect_err(|err| error!(?err, "error loading program icon"))
+			.unwrap_or_default();
 
 	info!("loaded icon");
 
-	let tray_menu = Menu::with_items(&[
-		&MenuItem::with_id(&*MENU_SHOW.0, "Show", true, None),
-		&MenuItem::with_id(&*MENU_EXIT.0, "Exit", true, None),
-	])
-	.unwrap();
+	let _tray_icon = set_up_tray_icon(&icon)
+		.inspect(|_| info!("set up tray icon"))
+		.inspect_err(|err| error!(?err, "error setting up tray icon"))
+		.ok();
 
-	let _tray_icon = TrayIconBuilder::new()
-		.with_tooltip("Quicalc")
-		.with_icon(Icon::from_rgba(pixels.clone(), width, height).unwrap())
-		.with_menu(Box::new(tray_menu))
-		.build()
-		.unwrap();
-
-	info!("set up tray icon");
+	let (width, height, pixels) = (icon.width(), icon.height(), icon.into_rgba8().into_vec());
+	let window_icon = icon::from_rgba(pixels, width, height)
+		.inspect_err(|err| error!(?err, "error setting window icon"))
+		.ok();
 
 	iced::application(Quicalc::new, Quicalc::update, Quicalc::view)
 		.subscription(Quicalc::subscription)
@@ -375,10 +401,11 @@ fn main() {
 			resizable: false,
 			transparent: true,
 			level: Level::AlwaysOnTop,
-			icon: Some(icon::from_rgba(pixels, width, height).unwrap()),
+			icon: window_icon,
 			exit_on_close_request: false,
 			..Default::default()
 		})
 		.run()
+		.inspect_err(|err| error!(?err, "error running application"))
 		.unwrap();
 }

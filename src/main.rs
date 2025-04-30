@@ -25,7 +25,9 @@ use image::{DynamicImage, ImageFormat};
 use kalk::parser::{Context, eval};
 #[cfg(feature = "python")]
 use pyo3::{Python, PythonVersionInfo};
-use tracing::{debug, error, info, trace, warn};
+#[cfg(feature = "python")]
+use tracing::warn;
+use tracing::{debug, error, info, trace};
 use tracing_subscriber::{EnvFilter, fmt, prelude::*};
 use tray_icon::{
 	Icon, TrayIcon, TrayIconBuilder,
@@ -255,11 +257,14 @@ impl Quicalc {
 			Message::InputSubmitted => {
 				match self.input.as_str() {
 					QuicalcMode::PYTHON_COMMAND => {
-						if cfg!(feature = "python") {
+						#[cfg(feature = "python")]
+						{
 							self.mode = QuicalcMode::Python;
 							self.input.clear();
 							self.result = None;
-						} else {
+						};
+						#[cfg(not(feature = "python"))]
+						{
 							self.input.clear();
 							self.result = Some("Python mode is not supported.".to_string());
 						};

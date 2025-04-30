@@ -11,6 +11,7 @@ python = ["dep:pyo3"]
 debug = ["iced/debug"]
 
 [dependencies]
+cfg-if = "1.0.0"
 crossbeam-channel = "0.5.15"
 dirs = "6.0.0"
 global-hotkey = { version = "0.6.4", features = ["serde"] }

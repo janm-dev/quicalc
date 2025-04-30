@@ -9,6 +9,7 @@ use std::{
 	sync::LazyLock,
 };
 
+use cfg_if::cfg_if;
 use global_hotkey::{
 	GlobalHotKeyEvent, GlobalHotKeyManager, HotKeyState,
 	hotkey::{Code, HotKey, Modifiers},
@@ -257,16 +258,15 @@ impl Quicalc {
 			Message::InputSubmitted => {
 				match self.input.as_str() {
 					QuicalcMode::PYTHON_COMMAND => {
-						#[cfg(feature = "python")]
-						{
-							self.mode = QuicalcMode::Python;
-							self.input.clear();
-							self.result = None;
-						};
-						#[cfg(not(feature = "python"))]
-						{
-							self.input.clear();
-							self.result = Some("Python mode is not supported.".to_string());
+						cfg_if! {
+							if #[cfg(feature = "python")] {
+								self.mode = QuicalcMode::Python;
+								self.input.clear();
+								self.result = None;
+							} else {
+								self.input.clear();
+								self.result = Some("Python mode is not supported.".to_string());
+							}
 						};
 					}
 					"" | "q" | "exit" | "quit" | "calc" | QuicalcMode::KALK_COMMAND => {

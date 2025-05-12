@@ -14,7 +14,7 @@ debug = ["iced/debug"]
 cfg-if = "1.0.0"
 crossbeam-channel = "0.5.15"
 dirs = "6.0.0"
-global-hotkey = { version = "0.6.4", features = ["serde"] }
+global-hotkey = { version = "0.7.0", features = ["serde"] }
 # iced = { version = "0.14.0", features = ["image"] }
 # FIXME: temporarily use iced from git for the bugfix for high CPU usage when
 # there are no visible windows (iced issue 2719) in 57b553d, switch back to

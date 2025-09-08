@@ -91,7 +91,7 @@ impl QuicalcMode {
 	fn prompt(&self) -> &'static str {
 		#[cfg(feature = "python")]
 		static PY_VERSION: LazyLock<String> = LazyLock::new(|| {
-			Python::with_gil(|py| {
+			Python::attach(|py| {
 				let PythonVersionInfo { major, minor, .. } = py.version_info();
 				format!("Python {major}.{minor}")
 			})
@@ -317,7 +317,7 @@ impl Quicalc {
 			}
 			#[cfg(feature = "python")]
 			QuicalcMode::Python => {
-				self.result = Python::with_gil(|py| {
+				self.result = Python::attach(|py| {
 					py.eval(
 						CString::new(self.input.clone())
 							.inspect_err(|err| warn!(?err, "invalid python expression entered"))

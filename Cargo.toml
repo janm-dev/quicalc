@@ -19,14 +19,14 @@ global-hotkey = { version = "0.7.0", features = ["serde"] }
 # FIXME: temporarily use iced from git for the bugfix for high CPU usage when
 # there are no visible windows (iced issue 2719) in 57b553d, switch back to
 # regular releases once the fix is released (probably in iced 0.14).
-iced = { git = "https://github.com/iced-rs/iced.git", rev = "aa633f6832c93d81fc829bcd351b369f0aada282", features = [
+iced = { git = "https://github.com/iced-rs/iced.git", rev = "efae3860bc3e2197eea39d30d756f93fb14c98d1", features = [
 	"image",
 ] }
 image = { version = "0.25.8", default-features = false, features = [
 	"png",
 ] }
 kalk = { version = "3.2.2", default-features = false }
-pyo3 = { version = "0.25.1", optional = true, features = [
+pyo3 = { version = "0.26.0", optional = true, features = [
 	"abi3",
 	"auto-initialize",
 ] }

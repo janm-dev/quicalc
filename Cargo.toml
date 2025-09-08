@@ -22,16 +22,16 @@ global-hotkey = { version = "0.7.0", features = ["serde"] }
 iced = { git = "https://github.com/iced-rs/iced.git", rev = "aa633f6832c93d81fc829bcd351b369f0aada282", features = [
 	"image",
 ] }
-image = { version = "0.25.2", default-features = false, features = [
+image = { version = "0.25.8", default-features = false, features = [
 	"png",
 ] }
-kalk = { version = "3.2.0", default-features = false }
+kalk = { version = "3.2.2", default-features = false }
 pyo3 = { version = "0.25.1", optional = true, features = [
 	"abi3",
 	"auto-initialize",
 ] }
 tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.18", features = [
+tracing-subscriber = { version = "0.3.20", features = [
 	"env-filter",
 ] }
 tray-icon = "0.21.1"

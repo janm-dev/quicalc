@@ -22,7 +22,7 @@ global-hotkey = { version = "0.7.0", features = ["serde"] }
 iced = { git = "https://github.com/iced-rs/iced.git", rev = "efae3860bc3e2197eea39d30d756f93fb14c98d1", features = [
 	"image",
 ] }
-image = { version = "0.25.8", default-features = false, features = [
+image = { version = "0.25.9", default-features = false, features = [
 	"png",
 ] }
 kalk = { version = "3.2.2", default-features = false }

@@ -26,12 +26,12 @@ image = { version = "0.25.9", default-features = false, features = [
 	"png",
 ] }
 kalk = { version = "3.2.2", default-features = false }
-pyo3 = { version = "0.27.1", optional = true, features = [
+pyo3 = { version = "0.27.2", optional = true, features = [
 	"abi3",
 	"auto-initialize",
 ] }
-tracing = "0.1.40"
-tracing-subscriber = { version = "0.3.20", features = [
+tracing = "0.1.43"
+tracing-subscriber = { version = "0.3.22", features = [
 	"env-filter",
 ] }
 tray-icon = "0.21.2"

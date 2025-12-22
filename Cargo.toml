@@ -30,7 +30,7 @@ pyo3 = { version = "0.27.2", optional = true, features = [
 	"abi3",
 	"auto-initialize",
 ] }
-tracing = "0.1.43"
+tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = [
 	"env-filter",
 ] }

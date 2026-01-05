@@ -34,4 +34,4 @@ tracing = "0.1.44"
 tracing-subscriber = { version = "0.3.22", features = [
 	"env-filter",
 ] }
-tray-icon = "0.21.2"
+tray-icon = "0.21.3"

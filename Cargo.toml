@@ -2,7 +2,7 @@
 name = "quicalc"
 version = "0.1.0"
 edition = "2024"
-rust-version = "1.86"
+rust-version = "1.92"
 license = "MIT OR Apache-2.0"
 
 [features]
@@ -15,13 +15,7 @@ cfg-if = "1.0.4"
 crossbeam-channel = "0.5.15"
 dirs = "6.0.0"
 global-hotkey = { version = "0.7.0", features = ["serde"] }
-# iced = { version = "0.14.0", features = ["image"] }
-# FIXME: temporarily use iced from git for the bugfix for high CPU usage when
-# there are no visible windows (iced issue 2719) in 57b553d, switch back to
-# regular releases once the fix is released (probably in iced 0.14).
-iced = { git = "https://github.com/iced-rs/iced.git", rev = "efae3860bc3e2197eea39d30d756f93fb14c98d1", features = [
-	"image",
-] }
+iced = { version = "0.14.0", features = ["image"] }
 image = { version = "0.25.9", default-features = false, features = [
 	"png",
 ] }

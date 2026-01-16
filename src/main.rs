@@ -19,7 +19,7 @@ use iced::{
 	futures::SinkExt,
 	keyboard::{Event as KeyboardEvent, Key, Modifiers as IcedModifiers, key::Named},
 	stream,
-	widget::{Image, column, image::Handle, row, text, text_input},
+	widget::{Id, Image, column, image::Handle, operation, row, text, text_input},
 	window::{self, Event as WindowEvent, Level, Mode, Position, Settings as WindowSettings, icon},
 };
 use image::{DynamicImage, ImageFormat};
@@ -200,10 +200,10 @@ impl Quicalc {
 							},
 						};
 
-						if let Some(message) = message {
-							if let Err(err) = sender.send(message).await {
-								error!("error processing event: {err:?}")
-							}
+						if let Some(message) = message
+							&& let Err(err) = sender.send(message).await
+						{
+							error!("error processing event: {err:?}")
 						}
 					}
 				})
@@ -235,10 +235,10 @@ impl Quicalc {
 
 		match msg {
 			Message::ShowWindow => Task::batch(vec![
-				window::get_oldest().and_then(|id| window::set_mode(id, Mode::Windowed)),
-				window::get_oldest().and_then(window::gain_focus),
-				text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
-				text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
+				window::oldest().and_then(|id| window::set_mode(id, Mode::Windowed)),
+				window::oldest().and_then(window::gain_focus),
+				operation::focus(Id::new(Self::TEXT_INPUT_ID)),
+				operation::select_all(Id::new(Self::TEXT_INPUT_ID)),
 			]),
 			Message::HideWindow => {
 				if self.input.is_empty() {
@@ -248,7 +248,7 @@ impl Quicalc {
 				self.ctx.0 = Context::new();
 				self.eval();
 
-				window::get_oldest().and_then(|id| window::set_mode(id, Mode::Hidden))
+				window::oldest().and_then(|id| window::set_mode(id, Mode::Hidden))
 			}
 			Message::InputChanged(input) => {
 				self.input = input;
@@ -278,8 +278,8 @@ impl Quicalc {
 				};
 
 				Task::batch(vec![
-					text_input::focus(text_input::Id::new(Self::TEXT_INPUT_ID)),
-					text_input::select_all(text_input::Id::new(Self::TEXT_INPUT_ID)),
+					operation::focus(Id::new(Self::TEXT_INPUT_ID)),
+					operation::select_all(Id::new(Self::TEXT_INPUT_ID)),
 				])
 			}
 			Message::Exit => exit(),
@@ -293,7 +293,7 @@ impl Quicalc {
 			text_input(self.mode.prompt(), &self.input)
 				.on_input(Message::InputChanged)
 				.on_submit(Message::InputSubmitted)
-				.id(text_input::Id::new(Self::TEXT_INPUT_ID)),
+				.id(Id::new(Self::TEXT_INPUT_ID)),
 			row![
 				Image::new(self.mode.indicator()),
 				text(self.result.as_deref().unwrap_or_default())

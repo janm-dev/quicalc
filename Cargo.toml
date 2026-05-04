@@ -14,7 +14,7 @@ debug = ["iced/debug"]
 cfg-if = "1.0.4"
 crossbeam-channel = "0.5.15"
 dirs = "6.0.0"
-global-hotkey = { version = "0.7.0", features = ["serde"] }
+global-hotkey = { version = "0.8.0", features = ["serde"] }
 iced = { version = "0.14.0", features = ["image"] }
 image = { version = "0.25.10", default-features = false, features = [
 	"png",

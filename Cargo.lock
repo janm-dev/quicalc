@@ -817,9 +817,9 @@ dependencies = [
 
 [[package]]
 name = "crossbeam-channel"
-version = "0.5.15"
+version = "0.5.16"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "82b8f8f868b36967f9606790d1903570de9ceaf870a7bf9fbbd3016d636a2cb2"
+checksum = "d85363c37faeca707aef026efa9f3b34d077bce547e48f770770625c6013679e"
 dependencies = [
  "crossbeam-utils",
 ]
@@ -2077,9 +2077,9 @@ dependencies = [
 
 [[package]]
 name = "kalk"
-version = "3.2.2"
+version = "3.2.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "eb0e44aa4d08da771a31dfa0cf192ed1a3f60130542efc43055b661912f6642d"
+checksum = "6be3b5fe1fc1b007b90dbb151aa48d480efece8f813f975d53597aaa4df67003"
 dependencies = [
  "lazy_static",
  "wasm-bindgen",

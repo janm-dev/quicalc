@@ -27,7 +27,7 @@ jobs:
           tool: cargo-deny
       - run: cargo deny check
         if: success() || failure()
-      - uses: actions/dependency-review-action@v2
+      - uses: actions/dependency-review-action@v5
         if: (success() || failure()) && (github.event_name == 'pull_request' || github.event_name == 'pull_request_target')
         with:
           fail-on-severity: low

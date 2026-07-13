@@ -13,3 +13,15 @@ updates:
       patch:
         update-types:
           - "patch"
+  - package-ecosystem: "github-actions"
+    directory: "/"
+    schedule:
+      interval: weekly
+    assignees:
+      - janm-dev
+    labels:
+      - updates
+    groups:
+      patch:
+        update-types:
+          - "patch"

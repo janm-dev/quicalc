@@ -43,7 +43,7 @@ jobs:
         with:
           tool: cargo-about
       - run: cargo about generate -o attribution.html --all-features about.hbs
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           name: ${{ needs.setup.outputs.name }}
           tag_name: ${{ needs.setup.outputs.tag }}
@@ -67,7 +67,7 @@ jobs:
       - run: |
           cargo build --release --target ${{ matrix.target }}
           cp "target/${{ matrix.target }}/release/quicalc.exe" "quicalc-${{ matrix.target }}.exe"
-      - uses: softprops/action-gh-release@v2
+      - uses: softprops/action-gh-release@v3
         with:
           name: ${{ needs.setup.outputs.name }}
           tag_name: ${{ needs.setup.outputs.tag }}

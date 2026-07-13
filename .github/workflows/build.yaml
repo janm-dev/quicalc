@@ -24,7 +24,7 @@ jobs:
     steps:
       - id: generate
         run: printf "NAME=$(date -u '+%Y-%m-%d %H:%M:%S')\nTAG=$(date -u '+%-Y.%-m.%-d.%-H.%-M.%-S')\n" >> $GITHUB_OUTPUT
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - run: |
           git config user.name "GitHub Actions"
           git config user.email "github-actions@users.noreply.github.com"
@@ -36,7 +36,7 @@ jobs:
     needs: setup
     runs-on: windows-latest
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
       - uses: Swatinem/rust-cache@v2
       - uses: taiki-e/install-action@v2
@@ -59,7 +59,7 @@ jobs:
       matrix:
         target: ["x86_64-pc-windows-msvc"]
     steps:
-      - uses: actions/checkout@v4
+      - uses: actions/checkout@v7
       - uses: dtolnay/rust-toolchain@stable
         with:
           targets: ${{ matrix.target }}

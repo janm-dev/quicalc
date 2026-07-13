@@ -5,6 +5,7 @@ targets = ["x86_64-pc-windows-msvc"]
 [advisories]
 version = 2
 ignore = []
+unmaintained = "workspace"
 
 [licenses]
 version = 2
